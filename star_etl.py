@@ -23,8 +23,8 @@ PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", "/opt/project"))
 
 SPARK_JARS = os.getenv(
     "SPARK_JARS",
-    "/opt/bitnami/spark/jars/postgresql-42.7.10.jar,"
-    "/opt/bitnami/spark/jars/clickhouse-jdbc-0.7.1.jar",
+    "/opt/spark/jars/postgresql-42.7.10.jar,"
+    "/opt/spark/jars/clickhouse-jdbc-0.7.1.jar",
 )
 
 POSTGRES_JDBC_URL = f"jdbc:postgresql://{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
@@ -93,8 +93,6 @@ FACT_COLUMNS = [
 # Явная схема для CSV (повышает надёжность)
 CSV_SCHEMA = T.StructType([
     T.StructField("id", T.LongType(), True),
-    T.StructField("sale_date", T.StringType(), True),
-    T.StructField("sale_customer_id", T.LongType(), True),
     T.StructField("customer_first_name", T.StringType(), True),
     T.StructField("customer_last_name", T.StringType(), True),
     T.StructField("customer_age", T.IntegerType(), True),
@@ -104,17 +102,28 @@ CSV_SCHEMA = T.StructType([
     T.StructField("customer_pet_type", T.StringType(), True),
     T.StructField("customer_pet_name", T.StringType(), True),
     T.StructField("customer_pet_breed", T.StringType(), True),
-    T.StructField("sale_seller_id", T.LongType(), True),
     T.StructField("seller_first_name", T.StringType(), True),
     T.StructField("seller_last_name", T.StringType(), True),
     T.StructField("seller_email", T.StringType(), True),
     T.StructField("seller_country", T.StringType(), True),
     T.StructField("seller_postal_code", T.StringType(), True),
-    T.StructField("sale_product_id", T.LongType(), True),
     T.StructField("product_name", T.StringType(), True),
     T.StructField("product_category", T.StringType(), True),
     T.StructField("product_price", T.DoubleType(), True),
     T.StructField("product_quantity", T.IntegerType(), True),
+    T.StructField("sale_date", T.StringType(), True),
+    T.StructField("sale_customer_id", T.LongType(), True),
+    T.StructField("sale_seller_id", T.LongType(), True),
+    T.StructField("sale_product_id", T.LongType(), True),
+    T.StructField("sale_quantity", T.IntegerType(), True),
+    T.StructField("sale_total_price", T.DoubleType(), True),
+    T.StructField("store_name", T.StringType(), True),
+    T.StructField("store_location", T.StringType(), True),
+    T.StructField("store_city", T.StringType(), True),
+    T.StructField("store_state", T.StringType(), True),
+    T.StructField("store_country", T.StringType(), True),
+    T.StructField("store_phone", T.StringType(), True),
+    T.StructField("store_email", T.StringType(), True),
     T.StructField("pet_category", T.StringType(), True),
     T.StructField("product_weight", T.DoubleType(), True),
     T.StructField("product_color", T.StringType(), True),
@@ -126,15 +135,6 @@ CSV_SCHEMA = T.StructType([
     T.StructField("product_reviews", T.IntegerType(), True),
     T.StructField("product_release_date", T.StringType(), True),
     T.StructField("product_expiry_date", T.StringType(), True),
-    T.StructField("sale_quantity", T.IntegerType(), True),
-    T.StructField("sale_total_price", T.DoubleType(), True),
-    T.StructField("store_name", T.StringType(), True),
-    T.StructField("store_location", T.StringType(), True),
-    T.StructField("store_city", T.StringType(), True),
-    T.StructField("store_state", T.StringType(), True),
-    T.StructField("store_country", T.StringType(), True),
-    T.StructField("store_phone", T.StringType(), True),
-    T.StructField("store_email", T.StringType(), True),
     T.StructField("supplier_name", T.StringType(), True),
     T.StructField("supplier_contact", T.StringType(), True),
     T.StructField("supplier_email", T.StringType(), True),
@@ -207,6 +207,7 @@ def build_spark() -> SparkSession:
         .appName("bigdata-lab-star-etl")
         .master("local[*]")
         .config("spark.sql.shuffle.partitions", "4")
+        .config("spark.jars.ivy", "/tmp/.ivy2")
         .config("spark.jars", SPARK_JARS)
         .config("spark.driver.extraClassPath", SPARK_JARS.replace(",", ":"))
         .config("spark.executor.extraClassPath", SPARK_JARS.replace(",", ":"))
@@ -227,7 +228,14 @@ def clean_string_columns(df):
 
 def read_raw_data(spark: SparkSession, csv_files: List[str]):
     # Читаем с явной схемой
-    raw_df = spark.read.schema(CSV_SCHEMA).option("multiLine", True).option("escape", '"').csv(csv_files)
+    raw_df = (
+        spark.read
+        .schema(CSV_SCHEMA)
+        .option("header", True)
+        .option("multiLine", True)
+        .option("escape", '"')
+        .csv(csv_files)
+    )
     raw_df = raw_df.withColumnRenamed("id", "sale_id")
     raw_df = clean_string_columns(raw_df)
 

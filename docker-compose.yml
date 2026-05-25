@@ -1,0 +1,89 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres_lab
+    environment:
+      POSTGRES_DB: bigdata_lab
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init_postgres.sql:/docker-entrypoint-initdb.d/01_init_postgres.sql:ro
+      - ./data:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bigdata_lab"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: ch_marts
+    environment:
+      CLICKHOUSE_DB: marts
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  spark:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: spark_etl
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    environment:
+      PROJECT_ROOT: /opt/project
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: bigdata_lab
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_HTTP_PORT: 8123
+      CLICKHOUSE_JDBC_PORT: 8123
+      CLICKHOUSE_DB: marts
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: clickhouse
+      POSTGRES_JDBC_JAR: /opt/spark/jars/postgresql-42.7.10.jar
+      CLICKHOUSE_JDBC_JAR: /opt/spark/jars/clickhouse-jdbc-0.7.1.jar
+      SPARK_JARS: /opt/spark/jars/postgresql-42.7.10.jar,/opt/spark/jars/clickhouse-jdbc-0.7.1.jar
+    ports:
+      - "4040:4040"
+      - "8888:8888"
+    volumes:
+      - ./:/opt/project
+    working_dir: /opt/project
+    command: ["/bin/bash", "-lc", "sleep infinity"]
+
+  jupyter:
+    image: jupyter/pyspark-notebook:spark-3.5.0
+    container_name: jupyter_lab
+    depends_on:
+      - spark
+    ports:
+      - "8889:8888"
+    volumes:
+      - ./:/home/jovyan/work
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: start-notebook.sh --NotebookApp.token=''
+
+volumes:
+  postgres_data:
+  clickhouse_data:

@@ -1,0 +1,20 @@
+FROM apache/spark:3.5.3
+
+USER root
+
+# Установка pip и curl
+RUN apt-get update && apt-get install -y python3-pip curl && rm -rf /var/lib/apt/lists/*
+
+# Копирование и установка Python-зависимостей
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+
+# Скачивание JDBC-драйверов в каталог jars Spark
+RUN curl -o /opt/spark/jars/postgresql-42.7.10.jar \
+    https://jdbc.postgresql.org/download/postgresql-42.7.10.jar && \
+    curl -o /opt/spark/jars/clickhouse-jdbc-0.7.1.jar \
+    https://github.com/ClickHouse/clickhouse-jdbc/releases/download/v0.7.1/clickhouse-jdbc-0.7.1-all.jar
+
+ENV SPARK_HOME=/opt/spark
+
+USER 1000

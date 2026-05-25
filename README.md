@@ -84,7 +84,7 @@ docker-compose up -d
 ### Выполнить первичный ETL: CSV → PostgreSQL (звезда)
 
 ```bash
-docker exec -it spark_etl python star_etl.py
+docker exec -it spark_etl python3 star_etl.py
 ```
 
 Скрипт:
@@ -100,7 +100,7 @@ docker exec -it spark_etl python star_etl.py
 ### Выполнить вторичный ETL: PostgreSQL → ClickHouse (витрины)
 
 ```bash
-docker exec -it spark_etl python clickhouse_etl.py
+docker exec -it spark_etl python3 clickhouse_etl.py
 ```
 
 Скрипт:

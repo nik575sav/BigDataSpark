@@ -4,17 +4,28 @@ USER root
 
 # Установка pip и curl
 RUN apt-get update && apt-get install -y python3-pip curl && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /tmp/.ivy2 && chmod -R 777 /tmp/.ivy2 && \
+    if ! getent passwd 1000 > /dev/null; then \
+        useradd --uid 1000 --gid 0 --home-dir /tmp --no-create-home sparkuser; \
+    fi
 
 # Копирование и установка Python-зависимостей
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Скачивание JDBC-драйверов в каталог jars Spark
-RUN curl -o /opt/spark/jars/postgresql-42.7.10.jar \
+RUN curl -fL -o /opt/spark/jars/postgresql-42.7.10.jar \
     https://jdbc.postgresql.org/download/postgresql-42.7.10.jar && \
-    curl -o /opt/spark/jars/clickhouse-jdbc-0.7.1.jar \
+    curl -fL -o /opt/spark/jars/clickhouse-jdbc-0.7.1.jar \
     https://github.com/ClickHouse/clickhouse-jdbc/releases/download/v0.7.1/clickhouse-jdbc-0.7.1-all.jar
 
 ENV SPARK_HOME=/opt/spark
+ENV HOME=/tmp
+ENV USER=sparkuser
+ENV LOGNAME=sparkuser
+ENV HADOOP_USER_NAME=sparkuser
+ENV SPARK_USER=sparkuser
+ENV SPARK_SUBMIT_OPTS="-Duser.home=/tmp -Duser.name=sparkuser"
+ENV PYSPARK_PYTHON=python3
 
 USER 1000
